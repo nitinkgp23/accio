@@ -1,0 +1,22 @@
+{
+  "name": "accio",
+  "version": "1.0.0",
+  "description": "A magic spell to fetch all highlights from you kindle ereader",
+  "main": "main.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "electron ."
+  },
+  "author": "nitinkgp23",
+  "license": "ISC",
+  "devDependencies": {
+    "electron": "^10.1.2",
+    "electron-rebuild": "^2.0.3"
+  },
+  "dependencies": {
+    "diff": "^4.0.2",
+    "drivelist": "^9.1.0",
+    "googleapis": "^39.2.0",
+    "usb": "^1.6.3"
+  }
+}
