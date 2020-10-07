@@ -1,8 +1,9 @@
-const authorize = require('./authorize')
+// const authorize = require('./authorize')
 const fs = require('fs');
 const {google} = require('googleapis');
 const utils = require('./utils')
 const stream = require("stream");
+const authorize = require('./authorize')
 
 const FILE_IDS = 'my_files/driveFileIds.json';
 const LAST_DIFF = 'my_files/lastDiff.json';
