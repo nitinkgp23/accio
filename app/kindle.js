@@ -9,10 +9,15 @@ CLIPPINGS_FILE = 'my_files/MyClippingsPersisted.txt'
 LAST_DIFF = "my_files/lastDiff.json"
 DIR = "my_files"
 
+var isKindleFound = false;
+var isClippingsFound = false;
+
 async function operate(callback) {
+    utils.sendIpcMessage('Detecting Kindle...')
     if (!fs.existsSync(DIR)) {
         fs.mkdirSync(DIR);
     }
+
     var devices = usb.getDeviceList();
     devices.forEach((device) => {
         getDeviceInformation(device, async function onInformation(error, information)
@@ -25,11 +30,13 @@ async function operate(callback) {
 
             if (isKindleDevice(information))
             {
+                isKindleFound = true;
                 const drives = await drivelist.list();
                 drives.forEach((drive) => {
                     filepath = getMyClippingsPath(drive);
                     if(filepath){
-                        console.log("Kindle found!");
+                        isClippingsFound = true;
+                        utils.sendIpcMessage('Kindle found. Reading Highlights..');
                         initialize(filepath, function(filepath)
                         {
                             actOnFile(filepath, callback);
@@ -39,6 +46,13 @@ async function operate(callback) {
             }
         });
     });
+
+    if (!isKindleFound) {
+        utils.sendIpcMessage("Kindle not found.");
+    }
+    else if (!isClippingsFound) {
+        utils.sendIpcMessage("No Clippings file found in Kindle.");
+    }
 }
 
 function initialize(filepath, callback) {
@@ -147,6 +161,7 @@ function processHighlights(highlights, callback) {
                 console.log("Diff persisted in file")
                 callback();
             }
+            utils.sendIpcMessage("Highlights reading complete!");
         });
     }); 
 }

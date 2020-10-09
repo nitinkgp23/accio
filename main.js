@@ -1,6 +1,6 @@
 const { app, BrowserWindow } = require('electron')
-const kindle = require('./kindle')
-const sync = require('./sync')
+const kindle = require('./app/kindle')
+const sync = require('./app/sync')
 
 function createWindow () {
   // Create the browser window.
@@ -17,7 +17,7 @@ function createWindow () {
 
   // Open the DevTools.
   win.webContents.openDevTools()
-
+  
   // Do kindle operations
   kindle.operate(function(){
     // Do sync operations
@@ -30,7 +30,6 @@ function createWindow () {
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(createWindow)
-// app.whenReady().then(authhh)
 
 // Quit when all windows are closed, except on macOS. There, it's common
 // for applications and their menu bar to stay active until the user quits

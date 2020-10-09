@@ -1,14 +1,14 @@
-// const authorize = require('./authorize')
+const authorize = require('./authorize')
 const fs = require('fs');
 const {google} = require('googleapis');
 const utils = require('./utils')
 const stream = require("stream");
-const authorize = require('./authorize')
 
 const FILE_IDS = 'my_files/driveFileIds.json';
 const LAST_DIFF = 'my_files/lastDiff.json';
 
 function operate() {
+    utils.sendIpcMessage("Syncing highlights...")
     var auth = null;
     authorize.operate(function(returnedAuth) {
         auth = returnedAuth;
@@ -103,6 +103,11 @@ function syncHighlights(auth) {
                     updateExistingGoogleDoc(auth, bookName, lastDiff, newLastDiff, driveFileIds)
                 }
             }
+            utils.sendIpcMessage("Finished syncing highlights...")
+
+        }
+        else {
+            utils.sendIpcMessage("No unsynced highlights found!")
         }
     }
 }

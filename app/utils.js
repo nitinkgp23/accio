@@ -1,4 +1,5 @@
 const fs = require('fs');
+var ipcMain = require('electron').ipcMain;
 
 function createFile(filename, callback, arg1) {
     fs.open(filename,'r',function(err, fd){
@@ -27,4 +28,14 @@ function writeFile(filename, data, callback) {
     });
 }
 
-module.exports = { createFile, readFile, writeFile }
+function sendIpcMessage(message) {
+    // Event handler for asynchronous incoming messages
+    ipcMain.on('asynchronous-message', (event, arg) => {
+        console.log(arg)
+
+        // Event emitter for sending asynchronous messages
+        event.sender.send('asynchronous-reply', message)
+    })
+}
+
+module.exports = { createFile, readFile, writeFile, sendIpcMessage }
