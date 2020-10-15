@@ -18,12 +18,13 @@ function createWindow () {
   // Open the DevTools.
   win.webContents.openDevTools()
   
+  // kindle.operate(win)
   // Do kindle operations
-  kindle.operate(function(){
+  kindle.operate(win, function(){
     // Do sync operations
-    sync.operate()
+    sync.operate(win)
   })
-  sync.operate()
+  sync.operate(win)
 }
 
 // This method will be called when Electron has finished

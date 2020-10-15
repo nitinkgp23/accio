@@ -11,9 +11,13 @@ DIR = "my_files"
 
 var isKindleFound = false;
 var isClippingsFound = false;
+var isNewHighlightsFound = false;
 
-async function operate(callback) {
-    utils.sendIpcMessage('Detecting Kindle...')
+var winObject = null;
+
+async function operate(win, callback) {
+    winObject = win;
+    utils.sendIpcMessage(winObject, 'kindleStatus%%Detecting Kindle...')
     if (!fs.existsSync(DIR)) {
         fs.mkdirSync(DIR);
     }
@@ -36,7 +40,8 @@ async function operate(callback) {
                     filepath = getMyClippingsPath(drive);
                     if(filepath){
                         isClippingsFound = true;
-                        utils.sendIpcMessage('Kindle found. Reading Highlights..');
+                        utils.sendIpcMessage(winObject, 'kindleStatus%%Kindle found.')
+                        utils.sendIpcMessage(winObject, 'highlightStatus%%Reading Highlights..');
                         initialize(filepath, function(filepath)
                         {
                             actOnFile(filepath, callback);
@@ -48,10 +53,10 @@ async function operate(callback) {
     });
 
     if (!isKindleFound) {
-        utils.sendIpcMessage("Kindle not found.");
+        utils.sendIpcMessage(winObject, 'kindleStatus%%Kindle not found.');
     }
     else if (!isClippingsFound) {
-        utils.sendIpcMessage("No Clippings file found in Kindle.");
+        utils.sendIpcMessage(winObject, 'kindleStatus%%No Clippings file found in Kindle.');
     }
 }
 
@@ -60,8 +65,8 @@ function initialize(filepath, callback) {
 }
 
 function actOnFile(filepath, callback) {
-    var persistedData = null;
-    var kindleData = null;
+    var persistedData = "";
+    var kindleData = "";
     var readPersistedError = false;
     var readKindleError = false;
     var writePersistedError = false;
@@ -105,9 +110,7 @@ function actOnFile(filepath, callback) {
 function actOnDiff(diff, callback) {
     var highlights = [];
     var writeJSONError = false;
-    if(diff.length > 0)
-        console.log("New diff detected")
-    
+
     diff.forEach(function(part){
         if (part.added) {
             highlights = part.value.split("==========").reduce(function(result_s, obj){
@@ -128,7 +131,15 @@ function actOnDiff(diff, callback) {
             }, []);
         }
     });
-    processHighlights(highlights, callback)
+    console.log(highlights)
+    if(highlights.length === 0) {
+        utils.sendIpcMessage(winObject, 'highlightStatus%%No new highlights found!');
+        callback();
+    }
+    else{
+        isNewHighlightsFound = true;
+        processHighlights(highlights, callback)
+    }
 }
 
 function processHighlights(highlights, callback) {
@@ -137,12 +148,11 @@ function processHighlights(highlights, callback) {
     var processedHighlights = {}
     utils.readFile(LAST_DIFF, function(error, data)
     {
-        if (!error) processHighlights = JSON.parse(data);
+        if (!error) processedHighlights = JSON.parse(data)['highlights'];
         highlights.forEach(function(highlight){
             if(!highlight.highlightText) {
                 highlight.highlightText = ""
             }
-            console.log(highlight)
             if (highlight.bookName in processedHighlights){
                 processedHighlights[highlight.bookName] = 
                 processedHighlights[highlight.bookName].concat(highlight.highlightText, '\n', '\n')
@@ -158,10 +168,9 @@ function processHighlights(highlights, callback) {
         {
             if(error) writeJSONError = true;
             else{
-                console.log("Diff persisted in file")
-                callback();
+                callback(winObject);
             }
-            utils.sendIpcMessage("Highlights reading complete!");
+            utils.sendIpcMessage(winObject, 'highlightStatus%%New highlights detected!');
         });
     }); 
 }
@@ -240,4 +249,4 @@ function getDeviceInformation(device, callback)
     }
 }
 
-module.exports = { operate }
+module.exports = { operate, isNewHighlightsFound }

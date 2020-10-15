@@ -3,36 +3,66 @@ const fs = require('fs');
 const {google} = require('googleapis');
 const utils = require('./utils')
 const stream = require("stream");
+const kindle = require('./kindle');
+const { sendIpcMessage } = require('./utils');
 
 const FILE_IDS = 'my_files/driveFileIds.json';
 const LAST_DIFF = 'my_files/lastDiff.json';
 
-function operate() {
-    utils.sendIpcMessage("Syncing highlights...")
+var winObject = null;
+
+/**
+ * The landing function for the script. Creates Oauth2 client and uses
+ * the client to initialise the process. 
+ * */ 
+function operate(win) {
     var auth = null;
-    authorize.operate(function(returnedAuth) {
-        auth = returnedAuth;
-        maybeCreateInitialFolder(auth, syncHighlights);
+    winObject = win;
+    authorize.operate(function(auth) {
+        // auth = returnedAuth;
+        maybeCreateDriveRootFolder(auth, syncHighlights);
     });
 }
 
-function maybeCreateInitialFolder(auth, callback) {
+/**
+ * Takes OAuth2 client as input, and a callback function to call after
+ * it has created the DriveRoot Folder.
+ * 
+ * It checks for the presence of FILE_IDS. Its absence implies the program
+ * is being initialised for the first time. Hence, create the root folder on
+ * Google Drive.
+ * 
+ * And then call SyncHighlights().
+ */
+function maybeCreateDriveRootFolder(auth, callback) {
     fs.open(FILE_IDS,'r', function(err, fd){
       if (err) {
-        createInitialFolder(auth, callback);
+        createDriveRootFolder(auth, callback);
       }
       else
         callback(auth);
     })
 }
 
-function createInitialFolder(auth, callback) {
+/**
+ * Takes OAuth2 client as input, and a callback function to call after
+ * it has created the DriveRoot Folder.
+ * 
+ * Only call SyncHighlights() when no error has been encountered.
+ * 
+ * Error sources:
+ *  1. Request to Drive API failed.
+ *  2. Writing driveFileIDs to JSON failed.
+ */
+function createDriveRootFolder(auth, callback) {
+    utils.sendIpcMessage(winObject, 'highlightSyncStatus%%Initialising Root Folder on drive.')
     var driveFileIds = null;
-    var writeDriveFileIdsJSONError = false;
     var fileMetadata = {
         'name': 'Accio Kindle Highlights',
         'mimeType': 'application/vnd.google-apps.folder'
     };
+
+    // Send request to DriveAPI to create root folder in Google drive.
     const drive = google.drive({version: 'v3', auth});
     drive.files.create({
         resource: fileMetadata,
@@ -51,24 +81,47 @@ function createInitialFolder(auth, callback) {
         var driveFileIdsJSON = JSON.stringify(driveFileIds);
         utils.writeFile(FILE_IDS, driveFileIdsJSON, function(error)
         {
-            if(error) writeDriveFileIdsJSONError = true;
-            else callback(auth);
+            if(error)
+                console.error(err);
+            else
+                callback(auth);
         });
     });
 }
 
+/**
+ * Function responsible for syncing highlights from LAST_DIFF to google docs
+ * online.
+ * 
+ * Sources of Error:
+ *  1. Reading LAST_DIFF failed
+ */
 function syncHighlights(auth) {
-    console.log("Syncing highlights main")
     var lastDiff = null;
     var driveFileIds = null;
     var callbacks = 2;
+    // var readKindleError = false;
+
+    /**
+     * Check if LAST_DIFF exists. If file exists, try reading the file.
+     * If reading LAST_DIFF is successful, parse the read data and store
+     * in an object. Wait for FILE_IDS to be read and call beginSync()
+     * thereafter.
+     * If reading LAST_DIFF fails, throw an error.
+     * 
+     * If LAST_DIFF doesn't exist, simply wait for FILE_IDS to be read and
+     * call beginSync() thereafter.
+     * */
 
     fs.open(LAST_DIFF,'r', function(err, fd){
         if (!err) {
             utils.readFile(LAST_DIFF, function callback(error, data)
             {
-                if (error) readKindleError = true;
-                else lastDiff = JSON.parse(data);
+                if (error)
+                    // readKindleError = true;
+                    console.error(error)
+                else
+                    lastDiff = JSON.parse(data);
             
                 if (--callbacks == 0) beginSync();
             });
@@ -78,45 +131,153 @@ function syncHighlights(auth) {
         }
     });
 
+    /**
+     * FILE_IDS must exist at this point. Try reading the file.
+     * If reading FILE_IDS is successful, parse the read data and store
+     * in an object. Wait for LAST_DIFF to be read and call beginSync()
+     * thereafter.
+     * 
+     * If reading FILE_IDS fails, throw an error.
+     * */
     utils.readFile(FILE_IDS, function callback(error, data)
     {
-        if (error) readKindleError = true;
-        else driveFileIds = JSON.parse(data);
+        if (error)
+            // readKindleError = true;
+            console.error(error)
+        else
+            driveFileIds = JSON.parse(data);
 
         if (--callbacks == 0) beginSync();
     });
 
+    /**
+     * beginSync() function begins to sync the contents of lastDiff online.
+     */
     function beginSync() {
-        if (lastDiff) {
+        // Check if lastDiff is not null, and its highlights attribute is not
+        // empty.
+        if(lastDiff && Object.keys(lastDiff.highlights).length !== 0) {
+            if(!kindle.isNewHighlightsFound) {
+                sendIpcMessage(winObject, 'highlightStatusLocal%%Unsynced highlights found locally!')
+            }
+            sendIpcMessage(winObject, 'highlightSyncStatus%%Syncing highlights..')
+            // If lastDiff exists, go ahead with syncing.
+            // newLastDiff will contain all the highlights which was not able
+            // to sync in this run, due to some error.
             newLastDiff = {
                 highlights : {}
             }
+
+            // Initialising for the first time, a book is being synced.
             if (!('bookFiles' in driveFileIds)) {
-                console.log("Setting bookFiles to empty")
                 driveFileIds.bookFiles = {}
             }
+
+            var isHighlightsPresent = false;
+
+            // Looping over all the highlights present.
             for (var bookName of Object.keys(lastDiff.highlights)) {
+                isHighlightsPresent = true;
+
+                // If this is a new book, create a new Google Doc for this,
+                // and then make a call to update the respective highlights
+                // to this Doc.
                 if (!(bookName in driveFileIds.bookFiles)) {
-                    createNewGoogleDoc(auth, bookName, lastDiff, newLastDiff, driveFileIds, updateExistingGoogleDoc)
+                    createNewGoogleDoc(auth, bookName, lastDiff, newLastDiff,
+                                       driveFileIds, updateExistingGoogleDoc)
                 }
+
+                // If this book already exists, only update the new highlights.
                 else {
-                    updateExistingGoogleDoc(auth, bookName, lastDiff, newLastDiff, driveFileIds)
+                    updateExistingGoogleDoc(auth, bookName, lastDiff,
+                                            newLastDiff, driveFileIds)
                 }
             }
-            utils.sendIpcMessage("Finished syncing highlights...")
 
+            // sendIpcMessage(winObject, 'highlightSyncStatus%%Finished syncing highlights!')
         }
+
+        else if(lastDiff){
+            // lastDiff exists implies No unsynced highlights were found.
+            utils.sendIpcMessage(winObject, 'highlightSyncStatus%%No unsynced highlights found locally.')
+        }
+
         else {
-            utils.sendIpcMessage("No unsynced highlights found!")
+            // If lastDiff doesn't exist, flash a message to HTML that
+            // Kindle hasn't been connected for the first time.
+            utils.sendIpcMessage(winObject, "highlightSyncStatus%%Connect Kindle to sync \
+                                  your first highlights!")
         }
     }
 }
 
-function updateExistingGoogleDoc(auth, bookName, lastDiff, newLastDiff, driveFileIds) {
-    // Updating existing google doc
-    const drive = google.drive({version: 'v3', auth});
-    console.log(bookName, "Book exists")
+/**
+ * 
+ * Function for updating highlights to an existing Google doc.
+ */
+function updateExistingGoogleDoc(auth, bookName, lastDiff,
+                                newLastDiff, driveFileIds) {
+    utils.sendIpcMessage(winObject, "bookList%%"+bookName+"%%Syncing")
+    const docs = google.docs({
+        version: "v1",
+        auth
+    });
     const documentId = driveFileIds.bookFiles[bookName];
+    const content = lastDiff.highlights[bookName];
+    console.log(bookName, 'start')
+    docs.documents.batchUpdate({
+        documentId: documentId,
+        resource: {
+          requests: [{
+            insertText: {
+              text: content,
+              endOfSegmentLocation: {
+              },
+            },
+          }],
+        }
+    })
+    .then(function(response) {
+        // Handle the response
+        utils.sendIpcMessage(winObject, "bookList%%"+bookName+"%%Done")
+        // TODO: Remove this book from newDiff. (Go reverse)
+        // TODO: Handle the case when user renames the book name online.
+        },
+        function (err) {
+            console.error(err);
+            utils.sendIpcMessage(winObject, "bookList%%"+bookName+"%%Error")
+            // TODO: Remove below line.
+            newLastDiff.highlights[bookName] = highlights[bookName];
+        }
+    )
+    .then(function(){
+        updateLastDiffJson(newLastDiff);
+        console.log(bookName, 'end')
+    })
+    /**
+     * Function to persist newLastDiff in a file.
+     */
+    function updateLastDiffJson(newLastDiff) {
+        var newLastDiffJSON = JSON.stringify(newLastDiff);
+        utils.writeFile(LAST_DIFF, newLastDiffJSON, function(error)
+        {
+            if(error)
+                console.error(error)
+        });
+    }
+}
+
+/**
+ * Function for updating highlights to an existing Google doc.
+ */
+function updateExistingGoogleDocOld(auth, bookName, lastDiff,
+                                 newLastDiff, driveFileIds) {
+
+    utils.sendIpcMessage(winObject, "bookList%%"+bookName+"%%Syncing")
+    const drive = google.drive({version: 'v3', auth});
+    const documentId = driveFileIds.bookFiles[bookName];
+    
+    // Send request to Drive API
     drive.files.export({
         fileId: documentId,
         mimeType: "text/plain",
@@ -125,19 +286,24 @@ function updateExistingGoogleDoc(auth, bookName, lastDiff, newLastDiff, driveFil
         (err, { data }) => {
             if (err) {
                 console.log(err);
+                utils.sendIpcMessage(winObject, "bookList%%"+bookName+"%%Error");
+                newLastDiff.highlights[bookName] = highlights[bookName];
+                updateLastDiffJson(newLastDiff);
                 return;
             }
             let buf = [];
             data.on("data", (e) => buf.push(e));
             data.on("end", () => {
+
                 const content = lastDiff.highlights[bookName];
-                console.log(content)
                 buf.push(Buffer.from(content, "binary"));
                 const bufferStream = new stream.PassThrough();
                 bufferStream.end(Uint8Array.from(Buffer.concat(buf)));
                 var media = {
                     body: bufferStream,
                 };
+
+                // Send request for update.
                 drive.files.update({
                     fileId: documentId,
                     resource: {},
@@ -146,11 +312,15 @@ function updateExistingGoogleDoc(auth, bookName, lastDiff, newLastDiff, driveFil
                 })
                 .then(function (response) {
                     // Handle the response
-                    console.log(response.data.name, "File updated")
+                    utils.sendIpcMessage(winObject, "bookList%%"+response.data.name+"%%Done")
+                    // TODO: Remove this book from newDiff. (Go reverse)
+                    // TODO: Handle the case when user renames the book name online.
                     },
                     function (err) {
-                    console.error(err);
-                    newLastDiff.highlights[bookName] = highlights[bookName];
+                        console.error(err);
+                        utils.sendIpcMessage(winObject, "bookList%%"+response.data.name+"%%Error")
+                        // TODO: Remove below line.
+                        newLastDiff.highlights[bookName] = highlights[bookName];
                 })
                 .then(function(){
                     updateLastDiffJson(newLastDiff);
@@ -158,24 +328,35 @@ function updateExistingGoogleDoc(auth, bookName, lastDiff, newLastDiff, driveFil
             });
         }
     );
+
+    /**
+     * Function to persist newLastDiff in a file.
+     */
     function updateLastDiffJson(newLastDiff) {
         var newLastDiffJSON = JSON.stringify(newLastDiff);
         utils.writeFile(LAST_DIFF, newLastDiffJSON, function(error)
         {
-            if(error) writeDriveFileIdsJSONError = true;
+            if(error)
+                console.error(error)
         });
     }
 }
 
-function createNewGoogleDoc(auth, bookName, lastDiff, newLastDiff, driveFileIds, callback) {
-    // Creating a new Google DOC
-    console.log(bookName, "doesnt exist")
+/**
+ * Function to create a Google doc for a new book that the 
+ * application sees.
+ */
+function createNewGoogleDoc(auth, bookName, lastDiff, newLastDiff,
+                            driveFileIds, callback) {
+    utils.sendIpcMessage(winObject, "bookList%%"+bookName+"%%Initialising")
     const drive = google.drive({version: 'v3', auth});
     var fileMetadata = {
         name: bookName,
         parents: [driveFileIds.rootFolderId],
         mimeType: "application/vnd.google-apps.document"
     };
+
+    // Sending request to DriveAPI
     drive.files.create({
         resource: fileMetadata,
         fields: 'id, name', 
@@ -183,7 +364,6 @@ function createNewGoogleDoc(auth, bookName, lastDiff, newLastDiff, driveFileIds,
     .then(function (response) {
         // Handle the response
         driveFileIds.bookFiles[response.data.name] = response.data.id
-        console.log(response.data.name, "File created")
         updateDriveFileIds(driveFileIds)
         callback(auth, bookName, lastDiff, newLastDiff, driveFileIds)
         },
@@ -191,15 +371,19 @@ function createNewGoogleDoc(auth, bookName, lastDiff, newLastDiff, driveFileIds,
             console.error(err);
         }   
     )
-    .then(function(){
-        updateDriveFileIds(driveFileIds)
-    })
+    // .then(function(){
+    //     updateDriveFileIds(driveFileIds)
+    // })
 
+    /**
+     * Function to persist driveFileIds in the file.
+     */
     function updateDriveFileIds(driveFileIds) {
         var driveFileIdsJSON = JSON.stringify(driveFileIds);
         utils.writeFile(FILE_IDS, driveFileIdsJSON, function(error)
         {
-            if(error) writeDriveFileIdsJSONError = true;
+            if(error)
+                console.error(error)
         });
     }
 }

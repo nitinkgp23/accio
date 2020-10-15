@@ -1,5 +1,6 @@
 const fs = require('fs');
 var ipcMain = require('electron').ipcMain;
+ipcMain.setMaxListeners(1000);
 
 function createFile(filename, callback, arg1) {
     fs.open(filename,'r',function(err, fd){
@@ -28,14 +29,20 @@ function writeFile(filename, data, callback) {
     });
 }
 
-function sendIpcMessage(message) {
+function sendIpcMessage(win, message) {
+    win.webContents.on('did-stop-loading', function() { 
+        win.webContents.send('asynchronous-message', message)
+    })
+    win.webContents.send('asynchronous-message', message)
+    // }
     // Event handler for asynchronous incoming messages
-    ipcMain.on('asynchronous-message', (event, arg) => {
-        console.log(arg)
+    // ipcMain.on('asynchronous-reply', (event, arg) => {
+        // console.log(arg)
 
         // Event emitter for sending asynchronous messages
-        event.sender.send('asynchronous-reply', message)
-    })
+        // event.sender.send('asynchronous-reply', message)
+        // ipcMain.removeListener('asynchronous-message', ()=>{})
+    // })
 }
 
 module.exports = { createFile, readFile, writeFile, sendIpcMessage }

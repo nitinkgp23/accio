@@ -5,10 +5,31 @@
     <title>Accio Kindle Highlights</title>
     <!-- https://electronjs.org/docs/tutorial/security#csp-meta-tag -->
     <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline';" />
+    <link rel="stylesheet" href="index.css">
   </head>
   <body>
-    <h1>Accio Kindle Highlights</h1>
+    <h1 style="text-align:center">Accio Kindle Highlights</h1>
 
+    <div class="mainBody">
+      <div class="kindleOp">
+        <div>
+          <p id="kindleStatus"></p>
+        </div>
+        <div>
+          <p id="highlightStatus"></p>
+        </div>
+      </div>
+      <!-- <img id="success" src="app/assets/icons8-ok-48.svg" alt="Success">
+      <img id="error" src="app/assets/icons8-cancel.svg" alt="Error">
+      <img id="progress" src="app/assets/icons8-spinner-48.png" alt="In progress"> -->
+      
+      <div class="syncOp">
+        <p id="highlightStatusLocal"></p>
+        <p id="highlightSyncStatus"></p>
+        <ul id="bookList">
+        </ul>
+      </div>
+    </div>
     <p id="kindleMessage"> </p>
 
     <script src="index.js"></script>
