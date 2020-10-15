@@ -3,7 +3,6 @@ ipcRenderer.setMaxListeners(1000);
 
 // Async message handler
 ipcRenderer.on('asynchronous-message', (event, arg) => {
-    console.log(arg)
     id = arg.split('%%')[0];
     if (id.localeCompare('bookList') === 0) {
         bookName = arg.split('%%')[1];
@@ -15,15 +14,15 @@ ipcRenderer.on('asynchronous-message', (event, arg) => {
             listItemImg.setAttribute("class", "custom");
             if(bookStatus === 'Syncing' || bookStatus === 'Initialising') {
                 listItemImg.setAttribute("alt", bookStatus);
-                listItemImg.setAttribute("src", "app/assets/icons8-spinner-48.png")
+                listItemImg.setAttribute("src", "assets/icons8-spinner-48.png")
             }
             else if(bookStatus === 'Error') {
                 listItemImg.setAttribute("alt", bookStatus);
-                listItemImg.setAttribute("src", "app/assets/icons8-cancel.svg")
+                listItemImg.setAttribute("src", "assets/icons8-cancel.svg")
             }
             else if(bookStatus === 'Done') {
                 listItemImg.setAttribute("alt", bookStatus);
-                listItemImg.setAttribute("src", "app/assets/icons8-ok-48.svg")
+                listItemImg.setAttribute("src", "assets/icons8-ok-48.svg")
             }
             spanElem.replaceChild(listItemImg, spanElem.childNodes[0]);
         }
@@ -38,15 +37,15 @@ ipcRenderer.on('asynchronous-message', (event, arg) => {
             listItemImg.setAttribute("class", "custom");
             if(bookStatus === 'Syncing' || bookStatus === 'Initialising') {
                 listItemImg.setAttribute("alt", bookStatus);
-                listItemImg.setAttribute("src", "app/assets/icons8-spinner-48.png")
+                listItemImg.setAttribute("src", "assets/icons8-spinner-48.png")
             }
             else if(bookStatus === 'Error') {
                 listItemImg.setAttribute("alt", bookStatus);
-                listItemImg.setAttribute("src", "app/assets/icons8-cancel.svg")
+                listItemImg.setAttribute("src", "assets/icons8-cancel.svg")
             }
             else if(bookStatus === 'Done') {
                 listItemImg.setAttribute("alt", bookStatus);
-                listItemImg.setAttribute("src", "app/assets/icons8-ok-48.svg")
+                listItemImg.setAttribute("src", "assets/icons8-ok-48.svg")
             }
 
             listItemSpan.setAttribute("class", "icon svgicon");
@@ -57,7 +56,7 @@ ipcRenderer.on('asynchronous-message', (event, arg) => {
                 var listItemImgInitial = document.createElement("img");
                 listItemImgInitial.setAttribute("class", "custom");
                 listItemImgInitial.setAttribute("alt", bookStatus);
-                listItemImgInitial.setAttribute("src", "app/assets/newicon.png")
+                listItemImgInitial.setAttribute("src", "assets/newicon.png")
 
                 listItemSpan.appendChild(listItemImgInitial)
             }
@@ -69,6 +68,10 @@ ipcRenderer.on('asynchronous-message', (event, arg) => {
             var list = document.getElementById('bookList');
             list.appendChild(listItem)
         }
+    }
+    else if (id.localeCompare('finalStatus') === 0) {
+        if(document.getElementById(id))
+            document.getElementById(id).innerHTML = arg.split('%%')[1];
     }
     else {
         if(document.getElementById(id))

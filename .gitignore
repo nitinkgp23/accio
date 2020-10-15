@@ -1,0 +1,9 @@
+.gitsecret/keys/random_seed
+!*.secret
+creds
+my_files
+public-key.gpg
+package-lock.json
+.DS_Store
+app/.DS_Store
+node_modules/

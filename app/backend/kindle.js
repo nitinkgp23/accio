@@ -54,9 +54,11 @@ async function operate(win, callback) {
 
     if (!isKindleFound) {
         utils.sendIpcMessage(winObject, 'kindleStatus%%Kindle not found.');
+        callback(winObject);
     }
     else if (!isClippingsFound) {
         utils.sendIpcMessage(winObject, 'kindleStatus%%No Clippings file found in Kindle.');
+        callback(winObject);
     }
 }
 

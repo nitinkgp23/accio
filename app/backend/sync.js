@@ -10,6 +10,8 @@ const FILE_IDS = 'my_files/driveFileIds.json';
 const LAST_DIFF = 'my_files/lastDiff.json';
 
 var winObject = null;
+var forLoopLength;
+var isNoError;
 
 /**
  * The landing function for the script. Creates Oauth2 client and uses
@@ -174,6 +176,8 @@ function syncHighlights(auth) {
             }
 
             var isHighlightsPresent = false;
+            forLoopLength = Object.keys(lastDiff.highlights).length;
+            isNoError = true;
 
             // Looping over all the highlights present.
             for (var bookName of Object.keys(lastDiff.highlights)) {
@@ -193,8 +197,6 @@ function syncHighlights(auth) {
                                             newLastDiff, driveFileIds)
                 }
             }
-
-            // sendIpcMessage(winObject, 'highlightSyncStatus%%Finished syncing highlights!')
         }
 
         else if(lastDiff){
@@ -224,7 +226,6 @@ function updateExistingGoogleDoc(auth, bookName, lastDiff,
     });
     const documentId = driveFileIds.bookFiles[bookName];
     const content = lastDiff.highlights[bookName];
-    console.log(bookName, 'start')
     docs.documents.batchUpdate({
         documentId: documentId,
         resource: {
@@ -242,93 +243,20 @@ function updateExistingGoogleDoc(auth, bookName, lastDiff,
         utils.sendIpcMessage(winObject, "bookList%%"+bookName+"%%Done")
         // TODO: Remove this book from newDiff. (Go reverse)
         // TODO: Handle the case when user renames the book name online.
+        allHighlightsProcessed();
         },
         function (err) {
             console.error(err);
             utils.sendIpcMessage(winObject, "bookList%%"+bookName+"%%Error")
+            isNoError = false;
             // TODO: Remove below line.
             newLastDiff.highlights[bookName] = highlights[bookName];
+            allHighlightsProcessed();
         }
     )
     .then(function(){
         updateLastDiffJson(newLastDiff);
-        console.log(bookName, 'end')
     })
-    /**
-     * Function to persist newLastDiff in a file.
-     */
-    function updateLastDiffJson(newLastDiff) {
-        var newLastDiffJSON = JSON.stringify(newLastDiff);
-        utils.writeFile(LAST_DIFF, newLastDiffJSON, function(error)
-        {
-            if(error)
-                console.error(error)
-        });
-    }
-}
-
-/**
- * Function for updating highlights to an existing Google doc.
- */
-function updateExistingGoogleDocOld(auth, bookName, lastDiff,
-                                 newLastDiff, driveFileIds) {
-
-    utils.sendIpcMessage(winObject, "bookList%%"+bookName+"%%Syncing")
-    const drive = google.drive({version: 'v3', auth});
-    const documentId = driveFileIds.bookFiles[bookName];
-    
-    // Send request to Drive API
-    drive.files.export({
-        fileId: documentId,
-        mimeType: "text/plain",
-        },
-        { responseType: "stream" },
-        (err, { data }) => {
-            if (err) {
-                console.log(err);
-                utils.sendIpcMessage(winObject, "bookList%%"+bookName+"%%Error");
-                newLastDiff.highlights[bookName] = highlights[bookName];
-                updateLastDiffJson(newLastDiff);
-                return;
-            }
-            let buf = [];
-            data.on("data", (e) => buf.push(e));
-            data.on("end", () => {
-
-                const content = lastDiff.highlights[bookName];
-                buf.push(Buffer.from(content, "binary"));
-                const bufferStream = new stream.PassThrough();
-                bufferStream.end(Uint8Array.from(Buffer.concat(buf)));
-                var media = {
-                    body: bufferStream,
-                };
-
-                // Send request for update.
-                drive.files.update({
-                    fileId: documentId,
-                    resource: {},
-                    media: media,
-                    fields: "id, name",
-                })
-                .then(function (response) {
-                    // Handle the response
-                    utils.sendIpcMessage(winObject, "bookList%%"+response.data.name+"%%Done")
-                    // TODO: Remove this book from newDiff. (Go reverse)
-                    // TODO: Handle the case when user renames the book name online.
-                    },
-                    function (err) {
-                        console.error(err);
-                        utils.sendIpcMessage(winObject, "bookList%%"+response.data.name+"%%Error")
-                        // TODO: Remove below line.
-                        newLastDiff.highlights[bookName] = highlights[bookName];
-                })
-                .then(function(){
-                    updateLastDiffJson(newLastDiff);
-                })
-            });
-        }
-    );
-
     /**
      * Function to persist newLastDiff in a file.
      */
@@ -369,11 +297,11 @@ function createNewGoogleDoc(auth, bookName, lastDiff, newLastDiff,
         },
         function (err) {
             console.error(err);
+            isNoError = false;
+            utils.sendIpcMessage(winObject, "bookList%%"+bookName+"%%Error")
+            allHighlightsProcessed();
         }   
     )
-    // .then(function(){
-    //     updateDriveFileIds(driveFileIds)
-    // })
 
     /**
      * Function to persist driveFileIds in the file.
@@ -388,4 +316,16 @@ function createNewGoogleDoc(auth, bookName, lastDiff, newLastDiff,
     }
 }
 
+function allHighlightsProcessed() {
+    // When all highlights have been processed
+    if(--forLoopLength === 0) {
+        sendIpcMessage(winObject, 'highlightSyncStatus%%Finished syncing highlights!')
+        if(isNoError) {
+            sendIpcMessage(winObject, 'finalStatus%%Success')
+        }
+        else {
+            sendIpcMessage(winObject, 'finalStatus%%Error')
+        }
+    }
+}
 module.exports = { operate }

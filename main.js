@@ -1,6 +1,6 @@
 const { app, BrowserWindow } = require('electron')
-const kindle = require('./app/kindle')
-const sync = require('./app/sync')
+const kindle = require('./app/backend/kindle')
+const sync = require('./app/backend/sync')
 
 function createWindow () {
   // Create the browser window.
@@ -13,7 +13,7 @@ function createWindow () {
   })
 
   // and load the index.html of the app.
-  win.loadFile('index.html')
+  win.loadFile('./app/index.html')
 
   // Open the DevTools.
   win.webContents.openDevTools()
@@ -24,7 +24,7 @@ function createWindow () {
     // Do sync operations
     sync.operate(win)
   })
-  sync.operate(win)
+  // sync.operate(win)
 }
 
 // This method will be called when Electron has finished
