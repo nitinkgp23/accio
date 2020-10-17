@@ -4,34 +4,28 @@
     <meta charset="UTF-8">
     <title>Accio Kindle Highlights</title>
     <!-- https://electronjs.org/docs/tutorial/security#csp-meta-tag -->
-    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline';" />
+    <meta charset="UTF-8" http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline';" />
     <link rel="stylesheet" href="index.css">
   </head>
   <body>
-    <h1 style="text-align:center">Accio Kindle Highlights</h1>
+    <h1><span class="heading">Accio Kindle Highlights</span></h1>
 
-    <div class="mainBody">
-      <div class="kindleOp">
-        <div>
-          <p id="kindleStatus"></p>
-        </div>
-        <div>
-          <p id="highlightStatus"></p>
-        </div>
-      </div>
-      <!-- <img id="success" src="app/assets/icons8-ok-48.svg" alt="Success">
-      <img id="error" src="app/assets/icons8-cancel.svg" alt="Error">
-      <img id="progress" src="app/assets/icons8-spinner-48.png" alt="In progress"> -->
-      
-      <div class="syncOp">
-        <p id="highlightStatusLocal"></p>
-        <p id="highlightSyncStatus"></p>
-        <ul id="bookList">
-        </ul>
-      </div>
+    <div class="kindleOp">
+        <p id="kindleStatus"></span></p>
+        <p id="highlightStatus"></span></p>
     </div>
-    <p id="finalStatus"> </p>
+      
+    <div class="syncOp">
+      <p id="highlightStatusLocal"></p>
+      <p id="highlightSyncStatus"></p>
+    </div>
 
+    <div id="bookListDiv"></div>
+    <!-- <p id="finalStatus"></p> -->
+
+    <footer>
+      <p>By <a href="https://nitinkgp23.github.io/" target="_blank">nitinkgp23</a> with <img class="footerimg" src="assets/icons8-heart.svg" alt="love"> </p>
+    </footer>
     <script src="index.js"></script>
   </body>
 </html>

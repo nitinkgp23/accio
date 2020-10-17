@@ -250,7 +250,7 @@ function updateExistingGoogleDoc(auth, bookName, lastDiff,
             utils.sendIpcMessage(winObject, "bookList%%"+bookName+"%%Error")
             isNoError = false;
             // TODO: Remove below line.
-            newLastDiff.highlights[bookName] = highlights[bookName];
+            newLastDiff.highlights[bookName] = lastDiff.highlights[bookName];
             allHighlightsProcessed();
         }
     )

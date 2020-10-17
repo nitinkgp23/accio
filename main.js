@@ -9,8 +9,15 @@ function createWindow () {
     height: 600,
     webPreferences: {
       nodeIntegration: true
-    }
+    },
+    resizable: false
   })
+
+  // Force external links to open in web browser
+  win.webContents.on('new-window', function(e, url) {
+    e.preventDefault();
+    require('electron').shell.openExternal(url);
+  });
 
   // and load the index.html of the app.
   win.loadFile('./app/index.html')

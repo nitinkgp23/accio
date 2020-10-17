@@ -4,7 +4,18 @@ ipcRenderer.setMaxListeners(1000);
 // Async message handler
 ipcRenderer.on('asynchronous-message', (event, arg) => {
     id = arg.split('%%')[0];
+    console.log(arg)
     if (id.localeCompare('bookList') === 0) {
+
+        // Initialise bookListDiv scroll window
+        if(!document.getElementById("bookListDiv").hasChildNodes()) {
+            document.getElementById("bookListDiv").setAttribute("class", "bookListDiv")
+            var list = document.createElement('ul')
+            list.setAttribute("class", "bookList")
+            list.setAttribute("id", "bookList")
+            document.getElementById("bookListDiv").appendChild(list);
+        } 
+
         bookName = arg.split('%%')[1];
         bookStatus = arg.split('%%')[2];
 
@@ -70,12 +81,32 @@ ipcRenderer.on('asynchronous-message', (event, arg) => {
         }
     }
     else if (id.localeCompare('finalStatus') === 0) {
-        if(document.getElementById(id))
-            document.getElementById(id).innerHTML = arg.split('%%')[1];
+        if(document.getElementById(id)) {
+            var spanElem = document.createElement('span')
+            spanElem.setAttribute("class", "status")
+            var textElem = document.createTextNode(arg.split('%%')[1]);
+            spanElem.appendChild(textElem);
+            if(document.getElementById(id).hasChildNodes()) {
+                document.getElementById(id).replaceChild(spanElem, document.getElementById(id).childNodes[0]);
+            }
+            else {
+                document.getElementById(id).appendChild(spanElem);
+            }
+        }
     }
     else {
-        if(document.getElementById(id))
-            document.getElementById(id).innerHTML = arg.split('%%')[1];
+        if(document.getElementById(id)) {
+            var spanElem = document.createElement('span')
+            spanElem.setAttribute("class", "status")
+            var textElem = document.createTextNode(arg.split('%%')[1]);
+            spanElem.appendChild(textElem);
+            if(document.getElementById(id).hasChildNodes()) {
+                document.getElementById(id).replaceChild(spanElem, document.getElementById(id).childNodes[0]);
+            }
+            else {
+                document.getElementById(id).appendChild(spanElem);
+            }
+        }
     }
 })
 
